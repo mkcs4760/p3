@@ -162,25 +162,36 @@ int main(int argc, char *argv[]) {
 	//int *clockSeconds, *clockNano;
 	//long clockInc = readOneNumber(input, programName);
 	//set up NEW STUFF, not the stupid clock thingy
-	char buffer[80]; //we are told that no line will contain more then 80 characters
+	char buffer[81]; //we are told that no line will contain more then 80 characters
 	int result;
 	int i,j = 0;
 	
 	//nt weight[NUMBER];
 	//int value[NUMBER];
-	char object[100][80];
-	
-    for(i=0;i<=100;i++){
-        while(NULL != fgets(buffer, 120, input)){
-                result=sscanf(buffer, "%s", &object[i][0]);
-                printf("%s \n", (char *)&object[i][0]);
-        }
-    }
-    for(j=0;j<4;j++){
-        printf(" String i equals %s \n", (char *)&object[j]);
-    }
+	char ourStrings[100][80];
+	int numOfLines = 0;
+
+	while (fgets(buffer, 81, input) != NULL) {
+		//remove EOF character
+		char *p = buffer;
+		if (p[strlen(p)-1] == '\n') {	
+			p[strlen(p)-1] = 0;
+		}
+		strcpy(&ourStrings[i][0], p);
+		i++;
+		numOfLines++;
+	}
+
+	for (i = 0; i < numOfLines; i++) {
+		for (j = 0; j < 80; ++j) {
+			printf("%c", ourStrings[i][j]);
+		}
+		printf("\n");
+	}
 
     fclose(input);
+
+
 	
 	/*for(i=0;i<=100;i++){
         if (NULL != &object[i][0]){
