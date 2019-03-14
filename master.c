@@ -11,11 +11,14 @@
 #include <sys/time.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include "sharedMemory.h"
 
 #define MAXLINECOUNT = 100
 #define MAXLINELENGTH = 80
 
 int shmid;
+
+
 
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
 static void myhandler(int s) {
@@ -157,20 +160,127 @@ int main(int argc, char *argv[]) {
 		errorMessage(programName, "Cannot open desired file. ");
 	}
 
+	
+	int shmid;
+    //int n;
+    file_entry *entries;
+
+    printf("start for else\n");
+	//connect to shared memory
+	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
+		printf("problem3");
+        exit(2);
+    }
+	//attach to shared memory
+    entries = (file_entry *) shmat(shmid, 0, 0);
+    if (entries == NULL ) {
+        printf("problem4");
+		exit(2);
+    }
+    
+	printf("done attachment\n");
+	
+	
+	entries->numOfLines = 0;	
+	
+	
+	
+	//used shared memory in one file now, eventually split into two once it works
+    if (fork() == 0) { //child
+    	//char buffer[11];
+		//sprintf(buffer, "%d", fullLine[2]);
+		execl ("palin", "plain", /*buffer,*/ NULL);
+		errorMessage(programName, "execl function failed. ");
+						
+		/*
+		printf("start for 0\n");
+		//connect to shared memory
+		if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
+            printf("shmget");
+            exit(2);
+        }
+		//attach to shared memory
+        entries = (file_entry*) shmat(shmid, 0, 0);
+        if (entries == NULL) {
+            printf("problem2");
+            exit(2);
+        }
+		//read from shared memory
+        sleep(1);
+		printf("\nChild Reading ....\n\n");
+		int i, j = 0;
+		
+		for (i = 0; i < entries->numOfLines; i++) {
+			for (j = 0; j < 80; ++j) {
+				printf("%c", entries->data[i][j]);
+			}
+			printf("\n");
+		}
+		
+		printf("%d\n", entries->numOfLines);
+		
+        putchar('\n');
+        printf("\nDone\n\n");
+		
+		//destroy shared memory
+		int ctl_return = shmctl(shmid, IPC_RMID, NULL);
+		if (ctl_return == -1) {
+			perror("Function scmctl failed. ");
+		}
+		printf("end for 0\n");
+		*/
+    } else {
+		int i = 0;
+		char buffer[81];
+		//perror("checkpoint 1");
+		while (fgets(buffer, 81, input) != NULL) {
+			//remove EOF character
+			char *p = buffer;
+			//perror("checkpoint 2");
+			if (p[strlen(p)-1] == '\n') {	
+				p[strlen(p)-1] = 0;
+			}
+			//perror("checkpoint 3");
+			//strcpy(&temp[i], p);
+			//perror("checkpoint 4"); //we never get pasted this checkpoint
+			sprintf(entries->data[i], "%s", p); //can't figure out the correct syntax. No examples of 2D char arrays online
+			
+			//strcpy(entries->data[i],p); //several failed attemps. Always either won't build or results in seg fault
+			//sprintf(entries->data, "%s", p);
+			//strcpy(entries->data[i][0], p);
+			//sprintf(&entries->data[i][0], "%s", p);
+			//entries->data[i][0] = temp[i][0];
+			//perror("checkpoint 5");
+			i++;
+			entries->numOfLines++;
+		}
+		//perror("checkpoint 6");
+
+		
+        wait(NULL);
+        shmdt(&shmid);
+		printf("end for else\n");
+    }
+	fclose(input);
+    return 0;
+	
+	
+	
+	
 	//int shmid;
 	//key_t key;
 	//int *clockSeconds, *clockNano;
 	//long clockInc = readOneNumber(input, programName);
 	//set up NEW STUFF, not the stupid clock thingy
-	char buffer[81]; //we are told that no line will contain more then 80 characters
+	/*char buffer[81]; //we are told that no line will contain more then 80 characters, plus one for new line char
 	int result;
 	int i,j = 0;
-	
-	//nt weight[NUMBER];
-	//int value[NUMBER];
-	char ourStrings[100][80];
-	int numOfLines = 0;
 
+	
+	//char ourStrings[100][80];
+	file_entry *entries; //this is my new pointer
+	int numOfLines = 0;
+	
 	while (fgets(buffer, 81, input) != NULL) {
 		//remove EOF character
 		char *p = buffer;
@@ -188,25 +298,11 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 	}
-
-    fclose(input);
-
-
 	
-	/*for(i=0;i<=100;i++){
-        if (NULL != &object[i][0]){
-                //result=sscanf(buffer, "%s", &object[i][0]);
-                printf("%s \n", (char *)&object[i][0]);
-        }
-    }*/
 	
-    /*for (i = 0; i < 5; ++i){
-      for(j = 0; j < 5; ++j){
-        printf("%c",object[i][j]);
-      }
-      printf("\n ");
-    }*/
-	
+
+    fclose(input);*/
+
 	
 	
 	/*
