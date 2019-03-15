@@ -6,6 +6,7 @@
 #include <sys/shm.h>
 #include <unistd.h> 
 #include <semaphore.h>
+#include <fcntl.h> //used for O_CREAT
 #include "sharedMemory.h"
 
 int main(int argc, char *argv[]) {
@@ -15,7 +16,7 @@ int main(int argc, char *argv[]) {
 	
 	int startIndex = atoi(argv[1]);
 	int duration = atoi(argv[2]);
-	printf("Cool! %d and %d!!\n", startIndex, duration);
+	//printf("Cool! %d and %d!!\n", startIndex, duration);
 	/*
 	int shmid;
 	key_t key;
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
 	printf("Child %d - %d:%d - Terminating\n", getpid(), *clockSeconds, *clockNano);
 	*/
 	
-	printf("start for this child\n");
+	printf("start for child with value %d\n", startIndex);
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
         printf("shmget");
@@ -72,10 +73,19 @@ int main(int argc, char *argv[]) {
 	/*if (*sem == -1) {
 		printf("Error conntecting to semaphore\n");
 	}*/
+	sem_t *sem = sem_open("mutex", O_RDWR);
+	if (sem == SEM_FAILED) {
+        perror("sem_open(3) failed");
+        exit(EXIT_FAILURE);
+    }
+	
+	
 	//read from shared memory
-	printf("\nChild Reading ....\n\n");
+	//printf("\nChild Reading ....\n\n");
 	int i, j = 0;
 	//sem_wait(entries->mutex);
+	sem_wait(sem);
+	printf("child with value %d entering critical zone\n", startIndex);
 	sleep(1);	
 	for (i = startIndex; i < startIndex + duration; i++) { //for each string
 		int stringLength = strlen(entries->data[i]);
@@ -103,18 +113,20 @@ int main(int argc, char *argv[]) {
 		
 	}
 	sleep(1);
+	printf("child with value %d exiting critical zone\n", startIndex);
+	sem_post(sem);
 	//sem_post(entries->mutex);
 	//printf("%d\n", entries->numOfLines);
 		
-	putchar('\n');
-	printf("\nDone\n\n");
+	//putchar('\n');
+	//printf("\nDone\n\n");
 		
 	//destroy shared memory
 	/*int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		perror("Function scmctl failed. ");
 	}*/
-	printf("end for this child\n");	
+	printf("end for child with value %d\n", startIndex);
 	
 	return 0;
 }

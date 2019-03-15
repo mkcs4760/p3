@@ -200,6 +200,12 @@ int main(int argc, char *argv[]) {
 	//sem_init(&entries->mutex, 1, 1);
 	//entries->mutex = sem_open ("sem", O_CREAT | O_EXCL, 0644, 1);
 	//sem = sem_open ("pSem", O_CREAT | O_EXCL, 0644, value);
+	//char *name ="rams";
+	sem_t *sem = sem_open("mutex", O_CREAT | O_EXCL, 0644, 1);
+	if (sem == SEM_FAILED) {
+		perror("sem_open error");
+	}
+
 	
 	printf("This file has %d lines\n", numOfLines);	
 	
@@ -218,7 +224,7 @@ int main(int argc, char *argv[]) {
 		//if no children are running, return -1
 		if (returnValue > 0) { //a child has ended
 			//write to output file the time this process ended
-			printf("Child %d ended\n", returnValue);
+			//printf("Child %d ended\n", returnValue);
 			numKidsRunning -= 1;
 			numKidsDone += 1;
 		}
@@ -230,11 +236,11 @@ int main(int argc, char *argv[]) {
 			if (startIndex + duration >= numOfLines) {
 				duration = numOfLines % 5;
 				done = 1;
-				printf("last run\n");
+				//printf("last run\n");
 			}
 			char buffer2[11];
 			sprintf(buffer2, "%d", duration);
-			printf("Let's send in %d and %d\n", startIndex, duration);
+			//printf("Let's send in %d and %d\n", startIndex, duration);
 			if (fork() == 0) { //child
 
 				execl ("palin", "plain", buffer1, buffer2, NULL);
@@ -251,6 +257,13 @@ int main(int argc, char *argv[]) {
 
 	}
 
+	sem_close(sem);
+	/* Close the semaphore as we won't be using it in the parent process */
+   /* if (sem_close(sem) < 0) {
+        perror("sem_close(3) failed");
+        sem_unlink("mutex");
+        //exit(EXIT_FAILURE);
+    }*/
 	//destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
