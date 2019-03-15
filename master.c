@@ -11,6 +11,8 @@
 #include <sys/time.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <semaphore.h>
+#include <fcntl.h> //used for O_CREAT
 #include "sharedMemory.h"
 
 #define MAXLINECOUNT = 100
@@ -47,7 +49,7 @@ static int setupinterrupt(void) { //set up myhandler for  SIGPROF
 //function taken from textbook as instructed by professor
 static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
     struct itimerval value;
-    value.it_interval.tv_sec = 2;
+    value.it_interval.tv_sec = 25;
     value.it_interval.tv_usec = 0;
     value.it_value = value.it_interval;
     return (setitimer(ITIMER_PROF, &value, NULL));
@@ -138,7 +140,7 @@ int main(int argc, char *argv[]) {
 						printf("\t-i\t<inputFileName>\t\tdefaults to input.txt\n");
 						//output file names are set to palin.out and nopalin.out
 						printf("\t-n\t<maxTotalChildren>\tdefaults to 4\n");
-						printf("\t-s\t<maxChildrenAtATime>\tdefaults to 2\n");
+						printf("\t-s\t<maxKidsAtATime>\tdefaults to 2\n");
 						printf("\t-h\t<NoArgument>\n");
 						printf("Version control acomplished using github. Log obtained using command 'git log > versionLog.txt\n");
 						exit(0);
@@ -177,235 +179,83 @@ int main(int argc, char *argv[]) {
         printf("problem4");
 		exit(2);
     }
-    
-	printf("done attachment\n");
-	
-	
-	entries->numOfLines = 0;	
-	
-	
-	
-	//used shared memory in one file now, eventually split into two once it works
-    if (fork() == 0) { //child
-    	//char buffer[11];
-		//sprintf(buffer, "%d", fullLine[2]);
-		execl ("palin", "plain", /*buffer,*/ NULL);
-		errorMessage(programName, "execl function failed. ");
-						
-		/*
-		printf("start for 0\n");
-		//connect to shared memory
-		if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
-            printf("shmget");
-            exit(2);
-        }
-		//attach to shared memory
-        entries = (file_entry*) shmat(shmid, 0, 0);
-        if (entries == NULL) {
-            printf("problem2");
-            exit(2);
-        }
-		//read from shared memory
-        sleep(1);
-		printf("\nChild Reading ....\n\n");
-		int i, j = 0;
-		
-		for (i = 0; i < entries->numOfLines; i++) {
-			for (j = 0; j < 80; ++j) {
-				printf("%c", entries->data[i][j]);
-			}
-			printf("\n");
-		}
-		
-		printf("%d\n", entries->numOfLines);
-		
-        putchar('\n');
-        printf("\nDone\n\n");
-		
-		//destroy shared memory
-		int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-		if (ctl_return == -1) {
-			perror("Function scmctl failed. ");
-		}
-		printf("end for 0\n");
-		*/
-    } else {
-		int i = 0;
-		char buffer[81];
-		//perror("checkpoint 1");
-		while (fgets(buffer, 81, input) != NULL) {
-			//remove EOF character
-			char *p = buffer;
-			//perror("checkpoint 2");
-			if (p[strlen(p)-1] == '\n') {	
-				p[strlen(p)-1] = 0;
-			}
-			//perror("checkpoint 3");
-			//strcpy(&temp[i], p);
-			//perror("checkpoint 4"); //we never get pasted this checkpoint
-			sprintf(entries->data[i], "%s", p); //can't figure out the correct syntax. No examples of 2D char arrays online
-			
-			//strcpy(entries->data[i],p); //several failed attemps. Always either won't build or results in seg fault
-			//sprintf(entries->data, "%s", p);
-			//strcpy(entries->data[i][0], p);
-			//sprintf(&entries->data[i][0], "%s", p);
-			//entries->data[i][0] = temp[i][0];
-			//perror("checkpoint 5");
-			i++;
-			entries->numOfLines++;
-		}
-		//perror("checkpoint 6");
-
-		
-        wait(NULL);
-        shmdt(&shmid);
-		printf("end for else\n");
-    }
-	fclose(input);
-    return 0;
-	
-	
-	
-	
-	//int shmid;
-	//key_t key;
-	//int *clockSeconds, *clockNano;
-	//long clockInc = readOneNumber(input, programName);
-	//set up NEW STUFF, not the stupid clock thingy
-	/*char buffer[81]; //we are told that no line will contain more then 80 characters, plus one for new line char
-	int result;
-	int i,j = 0;
-
-	
-	//char ourStrings[100][80];
-	file_entry *entries; //this is my new pointer
+    int i = 0;
+	char buffer[81];
 	int numOfLines = 0;
-	
 	while (fgets(buffer, 81, input) != NULL) {
-		//remove EOF character
+		//remove new line character
 		char *p = buffer;
 		if (p[strlen(p)-1] == '\n') {	
 			p[strlen(p)-1] = 0;
 		}
-		strcpy(&ourStrings[i][0], p);
+
+		sprintf(entries->data[i], "%s", p);
 		i++;
 		numOfLines++;
 	}
-
-	for (i = 0; i < numOfLines; i++) {
-		for (j = 0; j < 80; ++j) {
-			printf("%c", ourStrings[i][j]);
-		}
-		printf("\n");
-	}
+	fclose(input);
+	printf("done attachment\n");
 	
+	//initialize semaphore
+	//sem_init(&entries->mutex, 1, 1);
+	//entries->mutex = sem_open ("sem", O_CREAT | O_EXCL, 0644, 1);
+	//sem = sem_open ("pSem", O_CREAT | O_EXCL, 0644, value);
 	
-
-    fclose(input);*/
-
+	printf("This file has %d lines\n", numOfLines);	
 	
-	
-	/*
-	key = 1094;
-	shmid = shmget(key, sizeof(int*) + sizeof(long*), IPC_CREAT | 0666); //this is where we create shared memory
-	if(shmid < 0) {
-		errorMessage(programName, "Function shmget failed. ");
-	}
-	
-	//attach ourselves to that shared memory
-	clockSeconds = shmat(shmid, NULL, 0); //attempting to store 2 numbers in shared memory
-	clockNano = clockSeconds + 1;
-	if((clockSeconds == (int *) -1) || (clockNano == (int *) -1)) {
-		errorMessage(programName, "Function shmat failed. ");
-	}
-
-	*clockSeconds = 0;
-	*clockNano = 0;
+	int startIndex = -5;
+	int duration = 5;
+	int done = 0;
 	int numKidsRunning = 0;
+	int returnValue;
 	int numKidsDone = 0;
-	bool lineWaiting = false;
-	int counter = 0;
-	int singleNum;
-	int fullLine[3];
-	char* token;
-	bool endOfFile = false;
-	int temp;
-	FILE *output;
-	output = fopen("output.test", "w");
-	//loop until we're done
-	while((numKidsDone < maxKidsTotal) && !((numKidsRunning == 0) && endOfFile)) { //simulated clock is incremented by parent
-		//increment clock
-		//waitpid to see if a child has ended
-		//if (child has ended)
-		//launch another child
-		
-		*clockNano += clockInc;
-		if (*clockNano >= 1000000000) { //increment the next unit
-			*clockSeconds += 1;
-			*clockNano -= 1000000000;
-		}
-		temp = waitpid(-1, NULL, WNOHANG);
+	
+	while ((numKidsDone < maxKidsTotal) && !(done == 1 && numKidsRunning == 0)) {
+		//printf("done equals %d and kidsRunning equals %d\n", done, numKidsRunning);
+		returnValue = waitpid(-1, NULL, WNOHANG);
 		//if a child has ended, return pid
 		//if children are running, return 0
 		//if no children are running, return -1
-		if (temp > 0) { //a child has ended
+		if (returnValue > 0) { //a child has ended
 			//write to output file the time this process ended
-			fprintf(output, "Child %d ended at %d:%d\n", temp, *clockSeconds, *clockNano);
-			numKidsDone += 1;
+			printf("Child %d ended\n", returnValue);
 			numKidsRunning -= 1;
+			numKidsDone += 1;
 		}
-		//if you still have kids to run and there's room to run them
-		if (((numKidsDone + numKidsRunning) < maxKidsTotal) && (numKidsRunning < maxKidsAtATime)) {
-			if (lineWaiting == false) { //boolean added to avoid reading same line twice or skipping a line
-				char line[100];
-				lineWaiting = true;
-				counter = 0;
-				char *value = fgets(line, 100, input); //get line of numbers
-				if (value == NULL) {
-					//if there are no more lines, then we reached the EOF
-					endOfFile = true;
-				}
-				else {
-					token = strtok(line, " ");
-					while (token != NULL && token[0] != '\n' && counter < 3) {
-						singleNum = atoi(token);
-						fullLine[counter] = singleNum;
-						counter++;
-						token = strtok(NULL, " ");
-					}
-				}
+		
+		if (done == 0 && numKidsRunning < maxKidsAtATime) {
+			startIndex += 5;
+			char buffer1[11];
+			sprintf(buffer1, "%d", startIndex);
+			if (startIndex + duration >= numOfLines) {
+				duration = numOfLines % 5;
+				done = 1;
+				printf("last run\n");
 			}
-			if (endOfFile == false) {
-				if ((*clockSeconds > fullLine[0]) || ((*clockSeconds == fullLine[0]) && (*clockNano >= fullLine[1]))) {
-					//it's time to make a child
-					lineWaiting = false;
-					pid_t pid;
-					pid = fork();
-					
-					if (pid == 0) { //child
-						char buffer[11];
-						sprintf(buffer, "%d", fullLine[2]);
-						execl ("palin", "plain", buffer, NULL);
-						errorMessage(programName, "execl function failed. ");
-					}
-					else if (pid > 0) { //parent
-						numKidsRunning += 1;
-						//write to output file the time this process was launched
-						fprintf(output, "Created child %d at %d:%d to last %d\n", pid, *clockSeconds, *clockNano, fullLine[2]);
-						continue;
-					}
-				}
-			}
+			char buffer2[11];
+			sprintf(buffer2, "%d", duration);
+			printf("Let's send in %d and %d\n", startIndex, duration);
+			if (fork() == 0) { //child
+
+				execl ("palin", "plain", buffer1, buffer2, NULL);
+				errorMessage(programName, "execl function failed. ");
+			} else { //parrent
+				numKidsRunning += 1;
+				
+				//wait(NULL);
+				//shmdt(&shmid);
+				//printf("end for else\n");
+				continue;
+			}		
 		}
+
 	}
-	fclose(output);
-	
+
 	//destroy shared memory
-	printf("Parent terminating %d:%d\n", *clockSeconds, *clockNano);
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		errorMessage(programName, "Function scmctl failed. ");
 	}
-	*/
+	
 	return 0;
 }

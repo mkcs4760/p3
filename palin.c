@@ -5,12 +5,17 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <unistd.h> 
+#include <semaphore.h>
 #include "sharedMemory.h"
 
 int main(int argc, char *argv[]) {
 	int shmid;
-    int n;
+    //int n;
     file_entry *entries;
+	
+	int startIndex = atoi(argv[1]);
+	int duration = atoi(argv[2]);
+	printf("Cool! %d and %d!!\n", startIndex, duration);
 	/*
 	int shmid;
 	key_t key;
@@ -51,7 +56,7 @@ int main(int argc, char *argv[]) {
 	printf("Child %d - %d:%d - Terminating\n", getpid(), *clockSeconds, *clockNano);
 	*/
 	
-	printf("start for 0\n");
+	printf("start for this child\n");
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
         printf("shmget");
@@ -63,22 +68,17 @@ int main(int argc, char *argv[]) {
 		printf("problem2");
 		exit(2);
 	}
+	//sem_t *sem = sem_open("sem", 0);
+	/*if (*sem == -1) {
+		printf("Error conntecting to semaphore\n");
+	}*/
 	//read from shared memory
-	//sleep(1);
 	printf("\nChild Reading ....\n\n");
 	int i, j = 0;
-		
-	for (i = 0; i < entries->numOfLines; i++) { //for each string
+	//sem_wait(entries->mutex);
+	sleep(1);	
+	for (i = startIndex; i < startIndex + duration; i++) { //for each string
 		int stringLength = strlen(entries->data[i]);
-		/*for (j = 0; j < stringLength; j++) {
-			char end_char = entries->data[i][stringLength-j];
-			if (entries->data[i][j] != entries->data[i][end_char]) {
-				printf("%s does not equal %s\n", entries->data[i][j], entries->data[i][end_char]);
-			}
-			else {
-				printf("%s equals %s\n", entries->data[i][j], entries->data[i][end_char]);
-			}
-		}*/
 		char reverseString[80] = {'\0'};
 		for (j = stringLength - 1; j >= 0; j--) {
 			reverseString[stringLength - j - 1] = entries->data[i][j];
@@ -94,30 +94,27 @@ int main(int argc, char *argv[]) {
 		
 		
 		if (flag == 1) {
-			printf("Palindromes!!\n");
+			printf("Palindrome!!\n");
 		} else {
-			printf("Not palindromes...\n");
+			printf("Not a palindrome...\n");
 		}
 		
-		/*printf("Last character of the next string is %c\n", end_char);
-		
-		for (j = 0; j < 80; ++j) {
-			printf("%c", entries->data[i][j]);
-		}*/
 		printf("\n");
-	}
 		
-	printf("%d\n", entries->numOfLines);
+	}
+	sleep(1);
+	//sem_post(entries->mutex);
+	//printf("%d\n", entries->numOfLines);
 		
 	putchar('\n');
 	printf("\nDone\n\n");
 		
 	//destroy shared memory
-	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
+	/*int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		perror("Function scmctl failed. ");
-	}
-	printf("end for 0\n");	
+	}*/
+	printf("end for this child\n");	
 	
 	return 0;
 }
