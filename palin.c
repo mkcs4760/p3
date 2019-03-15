@@ -68,11 +68,43 @@ int main(int argc, char *argv[]) {
 	printf("\nChild Reading ....\n\n");
 	int i, j = 0;
 		
-	for (i = 0; i < entries->numOfLines; i++) {
+	for (i = 0; i < entries->numOfLines; i++) { //for each string
+		int stringLength = strlen(entries->data[i]);
+		/*for (j = 0; j < stringLength; j++) {
+			char end_char = entries->data[i][stringLength-j];
+			if (entries->data[i][j] != entries->data[i][end_char]) {
+				printf("%s does not equal %s\n", entries->data[i][j], entries->data[i][end_char]);
+			}
+			else {
+				printf("%s equals %s\n", entries->data[i][j], entries->data[i][end_char]);
+			}
+		}*/
+		char reverseString[80] = {'\0'};
+		for (j = stringLength - 1; j >= 0; j--) {
+			reverseString[stringLength - j - 1] = entries->data[i][j];
+		}
+		printf ("%s is the original string\n", entries->data[i]);
+		printf("%s is the reverse string\n", reverseString);
+		int flag = 1;
+		for(j = 0; j < stringLength; j++) {
+			if (reverseString[j] != entries->data[i][j]) {
+				flag = 0;
+			}
+		}
+		
+		
+		if (flag == 1) {
+			printf("Palindromes!!\n");
+		} else {
+			printf("Not palindromes...\n");
+		}
+		
+		/*printf("Last character of the next string is %c\n", end_char);
+		
 		for (j = 0; j < 80; ++j) {
 			printf("%c", entries->data[i][j]);
-		}
-			printf("\n");
+		}*/
+		printf("\n");
 	}
 		
 	printf("%d\n", entries->numOfLines);
