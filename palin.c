@@ -7,7 +7,15 @@
 #include <unistd.h> 
 #include <semaphore.h>
 #include <fcntl.h> //used for O_CREAT
+#include <time.h>
 #include "sharedMemory.h"
+
+int randomNum() {
+	srand(time(0));
+	int num = (rand() % 3) + 1;
+	printf("%d\n", num);
+	return num;
+}
 
 int main(int argc, char *argv[]) {
 	int shmid;
@@ -86,7 +94,7 @@ int main(int argc, char *argv[]) {
 	//sem_wait(entries->mutex);
 	sem_wait(sem);
 	printf("child with value %d entering critical zone\n", startIndex);
-	sleep(1);	
+	sleep(randomNum());	
 	for (i = startIndex; i < startIndex + duration; i++) { //for each string
 		int stringLength = strlen(entries->data[i]);
 		char reverseString[80] = {'\0'};
@@ -105,14 +113,22 @@ int main(int argc, char *argv[]) {
 		
 		if (flag == 1) {
 			printf("Palindrome!!\n");
+			FILE *pOut;
+			pOut = fopen("palin.out", "a");
+			fprintf(pOut, "%s\n", entries->data[i]);
+			fclose(pOut);
 		} else {
 			printf("Not a palindrome...\n");
+			FILE *nOut;
+			nOut = fopen("nopalin.out", "a");
+			fprintf(nOut, "%s\n", entries->data[i]);
+			fclose(nOut);
 		}
 		
 		printf("\n");
 		
 	}
-	sleep(1);
+	sleep(randomNum());
 	printf("child with value %d exiting critical zone\n", startIndex);
 	sem_post(sem);
 	//sem_post(entries->mutex);

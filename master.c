@@ -129,6 +129,15 @@ int main(int argc, char *argv[]) {
 	int maxKidsTotal = 4;
 	int maxKidsAtATime = 19; //we must never have more then 20 processes running, meaning 19 kids + 1 parent
 
+	//clear our files
+	FILE *pOut;
+	pOut = fopen("palin.out", "w");
+	fclose(pOut);
+	FILE *nOut;
+	nOut = fopen("nopalin.out", "w");
+	fclose(nOut);			
+	
+	
 	//first we process the getopt arguments
 	int option;
 	while ((option = getopt(argc, argv, "hn:i:")) != -1) {
