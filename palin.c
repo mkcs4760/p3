@@ -81,20 +81,23 @@ int main(int argc, char *argv[]) {
 	/*if (*sem == -1) {
 		printf("Error conntecting to semaphore\n");
 	}*/
-	sem_t *sem = sem_open("mutex", O_RDWR);
-	if (sem == SEM_FAILED) {
-        perror("sem_open(3) failed");
+	sem_t *semP = sem_open("mutexP", O_RDWR);
+	if (semP == SEM_FAILED) {
+        perror("sem_open(3P) failed");
         exit(EXIT_FAILURE);
     }
-	
+	sem_t *semN = sem_open("mutexN", O_RDWR);
+	if (semN == SEM_FAILED) {
+        perror("sem_open(3N) failed");
+        exit(EXIT_FAILURE);
+    }
+		
 	
 	//read from shared memory
 	//printf("\nChild Reading ....\n\n");
 	int i, j = 0;
 	//sem_wait(entries->mutex);
-	sem_wait(sem);
-	printf("child with value %d entering critical zone\n", startIndex);
-	sleep(randomNum());	
+
 	for (i = startIndex; i < startIndex + duration; i++) { //for each string
 		int stringLength = strlen(entries->data[i]);
 		char reverseString[80] = {'\0'};
@@ -110,27 +113,41 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-		
+
 		if (flag == 1) {
+			sem_wait(semP);
+			printf("child with value %d entering critical zone for P\n", startIndex);
+			//critical zone starts
+			sleep(randomNum());	
 			printf("Palindrome!!\n");
 			FILE *pOut;
 			pOut = fopen("palin.out", "a");
 			fprintf(pOut, "%s\n", entries->data[i]);
 			fclose(pOut);
+			sleep(randomNum());
+			//critical zone ends
+			printf("child with value %d exiting critical zone for P\n", startIndex);
+			sem_post(semP);
+		
 		} else {
+			sem_wait(semN);
+			printf("child with value %d entering critical zone for N\n", startIndex);
+			//critical zone starts
+			sleep(randomNum());				
 			printf("Not a palindrome...\n");
 			FILE *nOut;
 			nOut = fopen("nopalin.out", "a");
 			fprintf(nOut, "%s\n", entries->data[i]);
 			fclose(nOut);
+			sleep(randomNum());
+			//critical zone ends
+			printf("child with value %d exiting critical zone for N\n", startIndex);
+			sem_post(semN);			
 		}
-		
-		printf("\n");
+printf("\n");
 		
 	}
-	sleep(randomNum());
-	printf("child with value %d exiting critical zone\n", startIndex);
-	sem_post(sem);
+
 	//sem_post(entries->mutex);
 	//printf("%d\n", entries->numOfLines);
 		

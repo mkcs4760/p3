@@ -23,8 +23,9 @@ int shmid;
 
 
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
+/*
 static void myhandler(int s) {
-    char message[41] = "Program reached 2 second limit. Program ";
+    char message[41] = "Program reached 25 second limit. Program ";
     int errsave;
     errsave = errno;
     write(STDERR_FILENO, &message, 40);
@@ -54,7 +55,7 @@ static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
     value.it_value = value.it_interval;
     return (setitimer(ITIMER_PROF, &value, NULL));
 }
-
+*/
 //takes in program name and error string, and runs error message procedure
 void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
@@ -115,14 +116,14 @@ int main(int argc, char *argv[]) {
 	}
 	
 	//set up 2 second timer
-    if (setupinterrupt()) {
+   /* if (setupinterrupt()) {
 		errno = 125;
 		errorMessage(programName, "Failed to set up 2 second timer. ");
     }
     if (setupitimer() == -1) {
 		errno = 125;
 		errorMessage(programName, "Failed to set up 2 second timer. ");
-    }
+    }*/
 	
 	char inputFileName[] = "input.txt";
 	//char outputFileName[] = "output.txt";
@@ -210,9 +211,13 @@ int main(int argc, char *argv[]) {
 	//entries->mutex = sem_open ("sem", O_CREAT | O_EXCL, 0644, 1);
 	//sem = sem_open ("pSem", O_CREAT | O_EXCL, 0644, value);
 	//char *name ="rams";
-	sem_t *sem = sem_open("mutex", O_CREAT | O_EXCL, 0644, 1);
-	if (sem == SEM_FAILED) {
-		perror("sem_open error");
+	sem_t *semP = sem_open("mutexP", O_CREAT | O_EXCL, 0644, 1);
+	if (semP == SEM_FAILED) {
+		perror("sem_open1 error");
+	}
+	sem_t *semN = sem_open("mutexN", O_CREAT | O_EXCL, 0644, 1);
+	if (semN == SEM_FAILED) {
+		perror("sem_open2 error");
 	}
 
 	
@@ -266,7 +271,8 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	sem_close(sem);
+	sem_close(semP);
+	sem_close(semN);
 	/* Close the semaphore as we won't be using it in the parent process */
    /* if (sem_close(sem) < 0) {
         perror("sem_close(3) failed");
