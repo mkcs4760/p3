@@ -17,6 +17,12 @@ int randomNum() {
 	return num;
 }
 
+//function obtained at url https://stackoverflow.com/questions/3930363/implement-time-delay-in-c
+void waitFor (unsigned int secs) {
+	unsigned int retTime = time(0) + secs;
+	while (time(0) < retTime);
+}
+
 int main(int argc, char *argv[]) {
 	int shmid;
     //int n;
@@ -24,46 +30,6 @@ int main(int argc, char *argv[]) {
 	
 	int startIndex = atoi(argv[1]);
 	int duration = atoi(argv[2]);
-	//printf("Cool! %d and %d!!\n", startIndex, duration);
-	/*
-	int shmid;
-	key_t key;
-
-	int *clockSeconds, *clockNano;
-	
-	//connect to shared memory
-	key = 1094;
-	shmid = shmget(key, sizeof(int*) + sizeof(long*), 0666);
-	if(shmid < 0) {
-		perror("Shmget error in user process ");
-		exit(1);
-	}
-	
-	//attach ourselves to that shared memory
-	clockSeconds = shmat(shmid, NULL, 0); //attempting to store 2 numbers in shared memory
-	clockNano = clockSeconds + 1;
-	if((clockSeconds == (int *) -1) || (clockNano == (int *) -1)) {
-		perror("shmat error in user process");
-		exit(1);
-	}
-	
-	int startSeconds = *clockSeconds;
-	int startNano = *clockNano;
-	int stopSeconds;
-	int stopNano;
-	int duration = atoi(argv[1]);
-	
-	stopSeconds = startSeconds;
-	stopNano = startNano + duration;
-	if (stopNano >= 1000000000) {
-		stopSeconds += 1;
-		stopNano -= 1000000000;
-	}
-
-	while((*clockSeconds < stopSeconds) || ((*clockSeconds == stopSeconds) && (*clockNano < stopNano)));
-	//wait for the correct duration
-	printf("Child %d - %d:%d - Terminating\n", getpid(), *clockSeconds, *clockNano);
-	*/
 	
 	printf("start for child with value %d\n", startIndex);
 	//connect to shared memory
@@ -77,10 +43,7 @@ int main(int argc, char *argv[]) {
 		printf("problem2");
 		exit(2);
 	}
-	//sem_t *sem = sem_open("sem", 0);
-	/*if (*sem == -1) {
-		printf("Error conntecting to semaphore\n");
-	}*/
+
 	sem_t *semP = sem_open("mutexP", O_RDWR);
 	if (semP == SEM_FAILED) {
         perror("sem_open(3P) failed");
@@ -104,8 +67,8 @@ int main(int argc, char *argv[]) {
 		for (j = stringLength - 1; j >= 0; j--) {
 			reverseString[stringLength - j - 1] = entries->data[i][j];
 		}
-		printf ("%s is the original string\n", entries->data[i]);
-		printf("%s is the reverse string\n", reverseString);
+		//printf ("%s is the original string\n", entries->data[i]);
+		//printf("%s is the reverse string\n", reverseString);
 		int flag = 1;
 		for(j = 0; j < stringLength; j++) {
 			if (reverseString[j] != entries->data[i][j]) {
@@ -113,18 +76,20 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-
+		int pid = getpid();
 		if (flag == 1) {
 			sem_wait(semP);
 			printf("child with value %d entering critical zone for P\n", startIndex);
 			//critical zone starts
-			sleep(randomNum());	
-			printf("Palindrome!!\n");
+			waitFor(randomNum());
+			//sleep(randomNum());	
+			//printf("Palindrome!!\n");
 			FILE *pOut;
 			pOut = fopen("palin.out", "a");
-			fprintf(pOut, "%s\n", entries->data[i]);
+			fprintf(pOut, "%d\t%d\t%s\n", pid, i, entries->data[i]);
 			fclose(pOut);
-			sleep(randomNum());
+			//sleep(randomNum());
+			waitFor(randomNum());
 			//critical zone ends
 			printf("child with value %d exiting critical zone for P\n", startIndex);
 			sem_post(semP);
@@ -133,32 +98,22 @@ int main(int argc, char *argv[]) {
 			sem_wait(semN);
 			printf("child with value %d entering critical zone for N\n", startIndex);
 			//critical zone starts
-			sleep(randomNum());				
-			printf("Not a palindrome...\n");
+			waitFor(randomNum());
+			//sleep(randomNum());				
+			//printf("Not a palindrome...\n");
 			FILE *nOut;
 			nOut = fopen("nopalin.out", "a");
-			fprintf(nOut, "%s\n", entries->data[i]);
+			fprintf(nOut, "%d\t%d\t%s\n", pid, i, entries->data[i]);
 			fclose(nOut);
-			sleep(randomNum());
+			//sleep(randomNum());
+			waitFor(randomNum());
 			//critical zone ends
 			printf("child with value %d exiting critical zone for N\n", startIndex);
 			sem_post(semN);			
 		}
-printf("\n");
-		
+		printf("\n");	
 	}
-
-	//sem_post(entries->mutex);
-	//printf("%d\n", entries->numOfLines);
-		
-	//putchar('\n');
-	//printf("\nDone\n\n");
-		
-	//destroy shared memory
-	/*int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-	if (ctl_return == -1) {
-		perror("Function scmctl failed. ");
-	}*/
+	
 	printf("end for child with value %d\n", startIndex);
 	
 	return 0;

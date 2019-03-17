@@ -23,13 +23,31 @@ int shmid;
 
 
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
-/*
+
 static void myhandler(int s) {
     char message[41] = "Program reached 25 second limit. Program ";
     int errsave;
     errsave = errno;
     write(STDERR_FILENO, &message, 40);
     errno = errsave;
+   
+   
+    /*sem_close(SemP);
+	sem_close(semN);*/
+	sem_unlink("mutexP");
+	sem_unlink("mutexN");	
+	
+
+	
+	//we can't destroy shared memory until we kill the children
+	//we can't kill parent before we destroy shared memory
+	//question:: how to kill children only, then shared memory, and finally parent?
+	
+   
+   
+    //kill child processes
+    kill(-1*getpid(), SIGKILL); //kills process and all children
+   
    
     //destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
@@ -38,7 +56,7 @@ static void myhandler(int s) {
 		exit(1);
 	}
    
-    kill(-1*getpid(), SIGKILL); //kills process and all children
+    
 }
 //function taken from textbook as instructed by professor
 static int setupinterrupt(void) { //set up myhandler for  SIGPROF
@@ -55,7 +73,7 @@ static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
     value.it_value = value.it_interval;
     return (setitimer(ITIMER_PROF, &value, NULL));
 }
-*/
+
 //takes in program name and error string, and runs error message procedure
 void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
@@ -65,7 +83,7 @@ void errorMessage(char programName[100], char errorString[100]){
 	//destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
-		perror("shmctl for removel: ");
+		perror(" shmctl for removel ");
 		exit(1);
 	}
 	kill(-1*getpid(), SIGKILL);
@@ -108,6 +126,9 @@ int readOneNumber(FILE *input, char programName[100]) {
 
 
 int main(int argc, char *argv[]) {
+	sem_unlink("mutexP");
+	sem_unlink("mutexN");		
+	
 	//this section of code allows us to print the program name in error messages
 	char programName[100];
 	strcpy(programName, argv[0]);
@@ -116,14 +137,14 @@ int main(int argc, char *argv[]) {
 	}
 	
 	//set up 2 second timer
-   /* if (setupinterrupt()) {
+   if (setupinterrupt()) {
 		errno = 125;
 		errorMessage(programName, "Failed to set up 2 second timer. ");
     }
     if (setupitimer() == -1) {
 		errno = 125;
 		errorMessage(programName, "Failed to set up 2 second timer. ");
-    }*/
+    }
 	
 	char inputFileName[] = "input.txt";
 	//char outputFileName[] = "output.txt";
@@ -219,6 +240,9 @@ int main(int argc, char *argv[]) {
 	if (semN == SEM_FAILED) {
 		perror("sem_open2 error");
 	}
+	/*sem_close(semP);
+	sem_close(semN);*/
+
 
 	
 	printf("This file has %d lines\n", numOfLines);	
@@ -273,6 +297,8 @@ int main(int argc, char *argv[]) {
 
 	sem_close(semP);
 	sem_close(semN);
+	sem_unlink("mutexP");
+	sem_unlink("mutexN");	
 	/* Close the semaphore as we won't be using it in the parent process */
    /* if (sem_close(sem) < 0) {
         perror("sem_close(3) failed");
