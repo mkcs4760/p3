@@ -104,13 +104,6 @@ void errorMessage(char programName[100], char errorString[100]){
 	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
 	perror(errorFinal);
 	endAll(1);
-	/*//destroy shared memory
-	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-	if (ctl_return == -1) {
-		perror(" shmctl for removel ");
-		exit(1);
-	}
-	kill(-1*getpid(), SIGKILL);*/
 }
 
 //a function to check if string contains ending whitespace, and if so remove it

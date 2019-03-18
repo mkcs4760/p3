@@ -19,6 +19,14 @@ int randomNum() {
 	return num;
 }
 
+//takes in program name and error string, and runs error message procedure
+void errorMessage(char programName[100], char errorString[100]){
+	char errorFinal[200];
+	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
+	perror(errorFinal);
+	exit(1); //is this working???
+}
+
 //function obtained at url https://stackoverflow.com/questions/3930363/implement-time-delay-in-c
 void waitFor (unsigned int secs) {
 	unsigned int retTime = time(0) + secs;
@@ -42,6 +50,13 @@ void criticalAlert(int direction, char whichFile[15], time_t time){
 }
 
 int main(int argc, char *argv[]) {
+	//this section of code allows us to print the program name in error messages
+	char programName[100];
+	strcpy(programName, argv[0]);
+	if (programName[0] == '.' && programName[1] == '/') {
+		memmove(programName, programName + 2, strlen(programName));
+	}
+	
 	int shmid;
     //int n;
     file_entry *entries;
@@ -52,25 +67,21 @@ int main(int argc, char *argv[]) {
 	//printf("start for child with value %d\n", getpid());
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
-        printf("shmget");
-        exit(2);
+        errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
 	entries = (file_entry*) shmat(shmid, 0, 0);
 	if (entries == NULL) {
-		printf("problem2");
-		exit(2);
+		errorMessage(programName, "Function shmat failed. ");
 	}
 
 	sem_t *semP = sem_open("mutexP", O_RDWR);
 	if (semP == SEM_FAILED) {
-        perror("sem_open(3P) failed");
-        exit(EXIT_FAILURE);
+        errorMessage(programName, "Unable to open semaphore ");
     }
 	sem_t *semN = sem_open("mutexN", O_RDWR);
 	if (semN == SEM_FAILED) {
-        perror("sem_open(3N) failed");
-        exit(EXIT_FAILURE);
+        errorMessage(programName, "Unable to open semaphore ");
     }
 		
 	
@@ -136,8 +147,6 @@ int main(int argc, char *argv[]) {
 		}
 		//printf("\n");	
 	}
-	
-	//printf("end for child with value %d\n", getpid());
-	
+
 	return 0;
 }
