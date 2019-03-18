@@ -15,7 +15,7 @@
 int randomNum() {
 	srand(time(0));
 	int num = (rand() % 3) + 1;
-	printf("%d\n", num);
+	//printf("%d\n", num);
 	return num;
 }
 
@@ -23,6 +23,22 @@ int randomNum() {
 void waitFor (unsigned int secs) {
 	unsigned int retTime = time(0) + secs;
 	while (time(0) < retTime);
+}
+
+void criticalAlert(int direction, char whichFile[15], time_t time){
+	/*char errorFinal[200];
+	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
+	perror(errorFinal);*/
+	//printf("Time is %lld\n", (long long)time(0));
+	long long ourTime = (long long)time;
+	char alert[200];
+	if (direction)
+		sprintf(alert, "%d entering %s critical section at system time %lld", getpid(), whichFile, ourTime);
+	else
+		sprintf(alert, "%d exiting %s critical section at system time %lld", getpid(), whichFile, ourTime);
+	
+	perror(alert);
+	
 }
 
 int main(int argc, char *argv[]) {
@@ -33,7 +49,7 @@ int main(int argc, char *argv[]) {
 	int startIndex = atoi(argv[1]);
 	int duration = atoi(argv[2]);
 	
-	printf("start for child with value %d\n", startIndex);
+	//printf("start for child with value %d\n", getpid());
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
         printf("shmget");
@@ -81,8 +97,10 @@ int main(int argc, char *argv[]) {
 		int pid = getpid();
 		if (flag == 1) {
 			sem_wait(semP);
-			printf("child with value %d entering critical zone for P\n", startIndex);
+			//printf("child with value %d entering critical zone for P\n", getpid());
 			//critical zone starts
+			//printf("Time is %lld\n", (long long)time(0));
+			criticalAlert(1, "palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			waitFor(randomNum());
 			//sleep(randomNum());	
 			//printf("Palindrome!!\n");
@@ -92,14 +110,16 @@ int main(int argc, char *argv[]) {
 			fclose(pOut);
 			//sleep(randomNum());
 			waitFor(randomNum());
+			criticalAlert(0, "palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			//critical zone ends
-			printf("child with value %d exiting critical zone for P\n", startIndex);
+			//printf("child with value %d exiting critical zone for P\n", getpid());
 			sem_post(semP);
 		
 		} else {
 			sem_wait(semN);
-			printf("child with value %d entering critical zone for N\n", startIndex);
+			//printf("child %d entering critical zone for N\n", getpid());
 			//critical zone starts
+			criticalAlert(1, "non-palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			waitFor(randomNum());
 			//sleep(randomNum());				
 			//printf("Not a palindrome...\n");
@@ -110,13 +130,14 @@ int main(int argc, char *argv[]) {
 			//sleep(randomNum());
 			waitFor(randomNum());
 			//critical zone ends
-			printf("child with value %d exiting critical zone for N\n", startIndex);
+			criticalAlert(0, "non-palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			//printf("child with value %d exiting critical zone for N\n", getpid());
 			sem_post(semN);			
 		}
-		printf("\n");	
+		//printf("\n");	
 	}
 	
-	printf("end for child with value %d\n", startIndex);
+	//printf("end for child with value %d\n", getpid());
 	
 	return 0;
 }

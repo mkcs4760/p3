@@ -22,10 +22,10 @@ pid_t pidList[19] = { 0 }; //list of all pids
 
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
 static void myhandler(int s) {
-    char message[41] = "Program reached 25 second limit. Program ";
+    char message[42] = "Program reached 25 second limit. Program ";
     int errsave;
     errsave = errno;
-    write(STDERR_FILENO, &message, 40);
+    write(STDERR_FILENO, &message, 41);
     errno = errsave;
 
 	sem_unlink("mutexP");
@@ -37,10 +37,10 @@ static void myhandler(int s) {
 	int i;
 	for(i = 0; i < 19; i++) {
 		if (pidList[i] > 0) { //if there is an actual pid stored here
-			printf("Let's kill %d\n", pidList[i]);
+			//printf("Let's kill %d\n", pidList[i]);
 			kill(pidList[i], SIGKILL); //this should kill all children
-			int temp = waitpid(pidList[i], NULL, WUNTRACED);
-			printf("temp equals %d\n", temp);
+			waitpid(pidList[i], NULL, WUNTRACED);
+			//printf("temp equals %d\n", temp);
 			//while (waitpid(pidList[i], NULL, WUNTRACED) <= 0); //wait until it is actually killed
 		}
 	}
