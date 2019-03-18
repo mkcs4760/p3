@@ -20,15 +20,42 @@ int shmid;
 
 pid_t pidList[19] = { 0 }; //list of all pids
 
+void endAll(int error) {
+	sem_unlink("mutexP");
+	sem_unlink("mutexN");
+	
+	int i;
+	for(i = 0; i < 19; i++) {
+		if (pidList[i] > 0) { //if there is an actual pid stored here
+			kill(pidList[i], SIGKILL); //this should kill all children
+			waitpid(pidList[i], NULL, WUNTRACED);
+		}
+	}
+
+    //destroy shared memory
+	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
+	if (ctl_return == -1) {
+		perror(" Error with shmctl command: Could not remove shared memory ");
+		exit(1);
+	}
+	
+	//destroy master process
+	if (error)
+		kill(-1*getpid(), SIGKILL);	
+}
+
+
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
 static void myhandler(int s) {
-    char message[42] = "Program reached 25 second limit. Program ";
+    char message[46] = "Program reached 2 minute time limit. Program ";
     int errsave;
     errsave = errno;
-    write(STDERR_FILENO, &message, 41);
+    write(STDERR_FILENO, &message, 45);
     errno = errsave;
 
-	sem_unlink("mutexP");
+	endAll(1);
+	
+	/*sem_unlink("mutexP");
 	sem_unlink("mutexN");
 	
 	//we can't destroy shared memory until we kill the children
@@ -53,7 +80,7 @@ static void myhandler(int s) {
 	}
 	
 	kill(-1*getpid(), SIGKILL);
-    //kill(getpid(),SIGKILL);
+    //kill(getpid(),SIGKILL);*/
 }
 //function taken from textbook as instructed by professor
 static int setupinterrupt(void) { //set up myhandler for  SIGPROF
@@ -65,7 +92,7 @@ static int setupinterrupt(void) { //set up myhandler for  SIGPROF
 //function taken from textbook as instructed by professor
 static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
     struct itimerval value;
-    value.it_interval.tv_sec = 5;
+    value.it_interval.tv_sec = 120;
     value.it_interval.tv_usec = 0;
     value.it_value = value.it_interval;
     return (setitimer(ITIMER_PROF, &value, NULL));
@@ -76,14 +103,14 @@ void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
 	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
 	perror(errorFinal);
-	
-	//destroy shared memory
+	endAll(1);
+	/*//destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		perror(" shmctl for removel ");
 		exit(1);
 	}
-	kill(-1*getpid(), SIGKILL);
+	kill(-1*getpid(), SIGKILL);*/
 }
 
 //a function to check if string contains ending whitespace, and if so remove it
@@ -123,7 +150,7 @@ int readOneNumber(FILE *input, char programName[100]) {
 
 
 int main(int argc, char *argv[]) {
-	sem_unlink("mutexP");
+	sem_unlink("mutexP"); //just in case something went long last run, the semaphores will still be available this time
 	sem_unlink("mutexN");		
 	
 	//this section of code allows us to print the program name in error messages
@@ -144,7 +171,6 @@ int main(int argc, char *argv[]) {
     }
 	
 	char inputFileName[] = "input.txt";
-	//char outputFileName[] = "output.txt";
 	int maxKidsTotal = 4;
 	int maxKidsAtATime = 19; //we must never have more then 20 processes running, meaning 19 kids + 1 parent
 
@@ -155,7 +181,6 @@ int main(int argc, char *argv[]) {
 	FILE *nOut;
 	nOut = fopen("nopalin.out", "w");
 	fclose(nOut);			
-	
 	
 	//first we process the getopt arguments
 	int option;
@@ -190,22 +215,16 @@ int main(int argc, char *argv[]) {
 		errorMessage(programName, "Cannot open desired file. ");
 	}
 
-	
-	//int shmid;
-    //int n;
     file_entry *entries;
 
-    printf("start for else\n");
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
-		printf("problem3");
-        exit(2);
+		errorMessage(programName, "Function shmget failed. ");
     }
 	//attach to shared memory
     entries = (file_entry *) shmat(shmid, 0, 0);
     if (entries == NULL ) {
-        printf("problem4");
-		exit(2);
+        errorMessage(programName, "Function shmat failed. ");
     }
     int i = 0;
 	char buffer[81];
@@ -222,27 +241,21 @@ int main(int argc, char *argv[]) {
 		numOfLines++;
 	}
 	fclose(input);
-	printf("done attachment\n");
+	//printf("done attachment\n");
 	
 	//initialize semaphore
-	//sem_init(&entries->mutex, 1, 1);
-	//entries->mutex = sem_open ("sem", O_CREAT | O_EXCL, 0644, 1);
-	//sem = sem_open ("pSem", O_CREAT | O_EXCL, 0644, value);
-	//char *name ="rams";
 	sem_t *semP = sem_open("mutexP", O_CREAT | O_EXCL, 0644, 1);
 	if (semP == SEM_FAILED) {
-		perror("sem_open1 error");
+		errorMessage(programName, "Error creating semaphore ");
 	}
 	sem_t *semN = sem_open("mutexN", O_CREAT | O_EXCL, 0644, 1);
 	if (semN == SEM_FAILED) {
-		perror("sem_open2 error");
+		errorMessage(programName, "Error creating semaphore ");
 	}
-	/*sem_close(semP);
-	sem_close(semN);*/
-
-
+	sem_close(semP); //test the placement of these
+	sem_close(semN);
 	
-	printf("This file has %d lines\n", numOfLines);	
+	//printf("This file has %d lines\n", numOfLines);	
 	
 	int startIndex = -5;
 	int duration = 5;
@@ -306,10 +319,9 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	sem_close(semP);
-	sem_close(semN);
-	sem_unlink("mutexP");
-	sem_unlink("mutexN");	
+	endAll(0);
+	//sem_unlink("mutexP");
+	//sem_unlink("mutexN");	
 	/* Close the semaphore as we won't be using it in the parent process */
    /* if (sem_close(sem) < 0) {
         perror("sem_close(3) failed");
@@ -317,10 +329,10 @@ int main(int argc, char *argv[]) {
         //exit(EXIT_FAILURE);
     }*/
 	//destroy shared memory
-	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
+	/*int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
 		errorMessage(programName, "Function scmctl failed. ");
-	}
+	}*/
 	
 	return 0;
 }
