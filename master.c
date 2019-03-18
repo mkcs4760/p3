@@ -13,50 +13,47 @@
 #include <stdbool.h>
 #include <semaphore.h>
 #include <fcntl.h> //used for O_CREAT
+#include <signal.h>
 #include "sharedMemory.h"
-
-#define MAXLINECOUNT = 100
-#define MAXLINELENGTH = 80
 
 int shmid;
 
-
+pid_t pidList[19] = { 0 }; //list of all pids
 
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
-
 static void myhandler(int s) {
     char message[41] = "Program reached 25 second limit. Program ";
     int errsave;
     errsave = errno;
     write(STDERR_FILENO, &message, 40);
     errno = errsave;
-   
-   
-    /*sem_close(SemP);
-	sem_close(semN);*/
-	sem_unlink("mutexP");
-	sem_unlink("mutexN");	
-	
 
+	sem_unlink("mutexP");
+	sem_unlink("mutexN");
 	
 	//we can't destroy shared memory until we kill the children
 	//we can't kill parent before we destroy shared memory
 	//question:: how to kill children only, then shared memory, and finally parent?
-	
-   
-   
-    //kill child processes
-    kill(-1*getpid(), SIGKILL); //kills process and all children
-   
-   
+	int i;
+	for(i = 0; i < 19; i++) {
+		if (pidList[i] > 0) { //if there is an actual pid stored here
+			printf("Let's kill %d\n", pidList[i]);
+			kill(pidList[i], SIGKILL); //this should kill all children
+			int temp = waitpid(pidList[i], NULL, WUNTRACED);
+			printf("temp equals %d\n", temp);
+			//while (waitpid(pidList[i], NULL, WUNTRACED) <= 0); //wait until it is actually killed
+		}
+	}
+
     //destroy shared memory
 	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
 	if (ctl_return == -1) {
-		perror("shmctl for removel: ");
+		perror(" shmctl for removel: ");
 		exit(1);
 	}
-   
-    
+	
+	kill(-1*getpid(), SIGKILL);
+    //kill(getpid(),SIGKILL);
 }
 //function taken from textbook as instructed by professor
 static int setupinterrupt(void) { //set up myhandler for  SIGPROF
@@ -68,7 +65,7 @@ static int setupinterrupt(void) { //set up myhandler for  SIGPROF
 //function taken from textbook as instructed by professor
 static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
     struct itimerval value;
-    value.it_interval.tv_sec = 25;
+    value.it_interval.tv_sec = 5;
     value.it_interval.tv_usec = 0;
     value.it_value = value.it_interval;
     return (setitimer(ITIMER_PROF, &value, NULL));
@@ -194,7 +191,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	
-	int shmid;
+	//int shmid;
     //int n;
     file_entry *entries;
 
@@ -255,6 +252,7 @@ int main(int argc, char *argv[]) {
 	int numKidsDone = 0;
 	
 	while ((numKidsDone < maxKidsTotal) && !(done == 1 && numKidsRunning == 0)) {
+		
 		//printf("done equals %d and kidsRunning equals %d\n", done, numKidsRunning);
 		returnValue = waitpid(-1, NULL, WNOHANG);
 		//if a child has ended, return pid
@@ -264,6 +262,12 @@ int main(int argc, char *argv[]) {
 			//write to output file the time this process ended
 			//printf("Child %d ended\n", returnValue);
 			numKidsRunning -= 1;
+			for (i = 0; i < 19; i++) { //leave a spot in the array list
+				if (pidList[i] == returnValue) {
+					pidList[i] = 0;
+					break; //maybe this works?
+				}
+			}			
 			numKidsDone += 1;
 		}
 		
@@ -279,13 +283,20 @@ int main(int argc, char *argv[]) {
 			char buffer2[11];
 			sprintf(buffer2, "%d", duration);
 			//printf("Let's send in %d and %d\n", startIndex, duration);
-			if (fork() == 0) { //child
+			pid_t pid;
+			pid = fork();
+			if (pid == 0) { //child
 
 				execl ("palin", "plain", buffer1, buffer2, NULL);
 				errorMessage(programName, "execl function failed. ");
 			} else { //parrent
 				numKidsRunning += 1;
-				
+				for (i = 0; i < 19; i++) { //claim a spot in the array list
+					if (pidList[i] == 0) {
+						pidList[i] = pid;
+						break; //maybe this works?
+					}
+				}
 				//wait(NULL);
 				//shmdt(&shmid);
 				//printf("end for else\n");

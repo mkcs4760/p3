@@ -8,7 +8,9 @@
 #include <semaphore.h>
 #include <fcntl.h> //used for O_CREAT
 #include <time.h>
+#include <signal.h>
 #include "sharedMemory.h"
+
 
 int randomNum() {
 	srand(time(0));
