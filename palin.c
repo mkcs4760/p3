@@ -6,16 +6,15 @@
 #include <sys/shm.h>
 #include <unistd.h> 
 #include <semaphore.h>
-#include <fcntl.h> //used for O_CREAT
+#include <fcntl.h>
 #include <time.h>
 #include <signal.h>
 #include "sharedMemory.h"
 
-
+//generates a random number between 1 and 3
 int randomNum() {
 	srand(time(0));
 	int num = (rand() % 3) + 1;
-	//printf("%d\n", num);
 	return num;
 }
 
@@ -24,29 +23,25 @@ void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
 	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
 	perror(errorFinal);
-	exit(1); //is this working???
+	exit(1);
 }
 
 //function obtained at url https://stackoverflow.com/questions/3930363/implement-time-delay-in-c
+//waits for a given number of seconds
 void waitFor (unsigned int secs) {
 	unsigned int retTime = time(0) + secs;
 	while (time(0) < retTime);
 }
 
-void criticalAlert(int direction, char whichFile[15], time_t time){
-	/*char errorFinal[200];
-	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
-	perror(errorFinal);*/
-	//printf("Time is %lld\n", (long long)time(0));
+//sends out alerts whenever we enter/exit a critical zone
+void criticalAlert(int direction, char whichFile[15], time_t time) {
 	long long ourTime = (long long)time;
 	char alert[200];
 	if (direction)
 		sprintf(alert, "%d entering %s critical section at system time %lld", getpid(), whichFile, ourTime);
 	else
 		sprintf(alert, "%d exiting %s critical section at system time %lld", getpid(), whichFile, ourTime);
-	
 	perror(alert);
-	
 }
 
 int main(int argc, char *argv[]) {
@@ -58,13 +53,11 @@ int main(int argc, char *argv[]) {
 	}
 	
 	int shmid;
-    //int n;
-    file_entry *entries;
+    file_entry *entries; //allows us to request shared memory data
 	
-	int startIndex = atoi(argv[1]);
+	int startIndex = atoi(argv[1]); //get our arguments
 	int duration = atoi(argv[2]);
 	
-	//printf("start for child with value %d\n", getpid());
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
         errorMessage(programName, "Function shmget failed. ");
@@ -75,6 +68,7 @@ int main(int argc, char *argv[]) {
 		errorMessage(programName, "Function shmat failed. ");
 	}
 
+	//connect to semaphores
 	sem_t *semP = sem_open("mutexP", O_RDWR);
 	if (semP == SEM_FAILED) {
         errorMessage(programName, "Unable to open semaphore ");
@@ -86,66 +80,45 @@ int main(int argc, char *argv[]) {
 		
 	
 	//read from shared memory
-	//printf("\nChild Reading ....\n\n");
 	int i, j = 0;
-	//sem_wait(entries->mutex);
-
-	for (i = startIndex; i < startIndex + duration; i++) { //for each string
+	for (i = startIndex; i < startIndex + duration; i++) { //for each string within our range
 		int stringLength = strlen(entries->data[i]);
-		char reverseString[80] = {'\0'};
+		char reverseString[80] = {'\0'}; //create a reverse string
 		for (j = stringLength - 1; j >= 0; j--) {
 			reverseString[stringLength - j - 1] = entries->data[i][j];
 		}
-		//printf ("%s is the original string\n", entries->data[i]);
-		//printf("%s is the reverse string\n", reverseString);
 		int flag = 1;
 		for(j = 0; j < stringLength; j++) {
-			if (reverseString[j] != entries->data[i][j]) {
-				flag = 0;
+			if (reverseString[j] != entries->data[i][j]) { //compare original and reverse strings
+				flag = 0; //if we find a difference between original and reverse string, set flag to 0
 			}
 		}
 		
 		int pid = getpid();
-		if (flag == 1) {
-			sem_wait(semP);
-			//printf("child with value %d entering critical zone for P\n", getpid());
-			//critical zone starts
-			//printf("Time is %lld\n", (long long)time(0));
-			criticalAlert(1, "palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			waitFor(randomNum());
-			//sleep(randomNum());	
-			//printf("Palindrome!!\n");
+		if (flag == 1) { //if no difference, we have a palindrome
+			sem_wait(semP); //critical zone starts
+			criticalAlert(1, "palindrome", time(0)); //send alert via stderr
+			waitFor(randomNum()); //required wait before file processing
 			FILE *pOut;
 			pOut = fopen("palin.out", "a");
 			fprintf(pOut, "%d\t%d\t%s\n", pid, i, entries->data[i]);
 			fclose(pOut);
-			//sleep(randomNum());
-			waitFor(randomNum());
-			criticalAlert(0, "palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			//critical zone ends
-			//printf("child with value %d exiting critical zone for P\n", getpid());
-			sem_post(semP);
+			waitFor(randomNum()); //required wait after file processing
+			criticalAlert(0, "palindrome", time(0)); //send alert via stderr
+			sem_post(semP); //critical zone ends
 		
-		} else {
-			sem_wait(semN);
-			//printf("child %d entering critical zone for N\n", getpid());
-			//critical zone starts
-			criticalAlert(1, "non-palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			waitFor(randomNum());
-			//sleep(randomNum());				
-			//printf("Not a palindrome...\n");
+		} else { //if there is a diference, we do not have a palindrome
+			sem_wait(semN); //critical zone starts
+			criticalAlert(1, "non-palindrome", time(0)); //send alert via stderr
+			waitFor(randomNum()); //required wait before file processing
 			FILE *nOut;
 			nOut = fopen("nopalin.out", "a");
 			fprintf(nOut, "%d\t%d\t%s\n", pid, i, entries->data[i]);
 			fclose(nOut);
-			//sleep(randomNum());
-			waitFor(randomNum());
-			//critical zone ends
-			criticalAlert(0, "non-palindrome", time(0)); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-			//printf("child with value %d exiting critical zone for N\n", getpid());
-			sem_post(semN);			
+			waitFor(randomNum()); //required wait after file processing
+			criticalAlert(0, "non-palindrome", time(0)); //send alert via stderr
+			sem_post(semN); //critical zone ends			
 		}
-		//printf("\n");	
 	}
 
 	return 0;

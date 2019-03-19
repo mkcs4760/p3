@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <semaphore.h>
-#include <fcntl.h> //used for O_CREAT
+#include <fcntl.h>
 #include <signal.h>
 #include "sharedMemory.h"
 
@@ -20,10 +20,14 @@ int shmid;
 
 pid_t pidList[19] = { 0 }; //list of all pids
 
+//called whenever we terminate program. Unlinks semaphores, kills child processes, destroys shared memory,
+//and, if resulting from an error, destroys master process
 void endAll(int error) {
+	//unlink semaphores
 	sem_unlink("mutexP");
 	sem_unlink("mutexN");
 	
+	//kill child processes
 	int i;
 	for(i = 0; i < 19; i++) {
 		if (pidList[i] > 0) { //if there is an actual pid stored here
@@ -44,7 +48,6 @@ void endAll(int error) {
 		kill(-1*getpid(), SIGKILL);	
 }
 
-
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
 static void myhandler(int s) {
     char message[46] = "Program reached 2 minute time limit. Program ";
@@ -52,35 +55,7 @@ static void myhandler(int s) {
     errsave = errno;
     write(STDERR_FILENO, &message, 45);
     errno = errsave;
-
 	endAll(1);
-	
-	/*sem_unlink("mutexP");
-	sem_unlink("mutexN");
-	
-	//we can't destroy shared memory until we kill the children
-	//we can't kill parent before we destroy shared memory
-	//question:: how to kill children only, then shared memory, and finally parent?
-	int i;
-	for(i = 0; i < 19; i++) {
-		if (pidList[i] > 0) { //if there is an actual pid stored here
-			//printf("Let's kill %d\n", pidList[i]);
-			kill(pidList[i], SIGKILL); //this should kill all children
-			waitpid(pidList[i], NULL, WUNTRACED);
-			//printf("temp equals %d\n", temp);
-			//while (waitpid(pidList[i], NULL, WUNTRACED) <= 0); //wait until it is actually killed
-		}
-	}
-
-    //destroy shared memory
-	int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-	if (ctl_return == -1) {
-		perror(" shmctl for removel: ");
-		exit(1);
-	}
-	
-	kill(-1*getpid(), SIGKILL);
-    //kill(getpid(),SIGKILL);*/
 }
 //function taken from textbook as instructed by professor
 static int setupinterrupt(void) { //set up myhandler for  SIGPROF
@@ -90,7 +65,7 @@ static int setupinterrupt(void) { //set up myhandler for  SIGPROF
     return (sigemptyset(&act.sa_mask) || sigaction(SIGPROF, &act, NULL));
 }
 //function taken from textbook as instructed by professor
-static int setupitimer(void) { // set ITIMER_PROF for 2-second intervals
+static int setupitimer(void) { // set ITIMER_PROF for 2-minute intervals
     struct itimerval value;
     value.it_interval.tv_sec = 120;
     value.it_interval.tv_usec = 0;
@@ -103,7 +78,7 @@ void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
 	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
 	perror(errorFinal);
-	endAll(1);
+	endAll(1); //releases resources and terminates all processes
 }
 
 //a function to check if string contains ending whitespace, and if so remove it
@@ -115,35 +90,8 @@ void removeSpaces(char* s) {
 	}
 }
 
-//a function designed to read a line containing a single number and process it
-int readOneNumber(FILE *input, char programName[100]) {
-	char line[100];
-	char *token;
-	fgets(line, 100, input);
-	if (line[0] == '\0') { //if there are no more lines, then we have an error
-		errno = 1;
-		perror("Error reading in one number");
-		//errorMessage(programName, "Invalid input file format. Expected more lines then read. ");
-	}
-	token = strtok(line, " "); //read in a single numer
-	removeSpaces(token); //remove any hanging whitespace
-	int ourValue = atoi(token);
-	if ((token = strtok(NULL, " ")) != NULL) { //check if there is anything after this number
-		if (token[0] == '\n') { //if what remains is just new line character, no problem
-			return ourValue;
-		}
-		else {
-			return -1; //else, the function failed and -1 is returned
-		}
-	}
-	else {
-		return ourValue;
-	}
-}
-
-
 int main(int argc, char *argv[]) {
-	sem_unlink("mutexP"); //just in case something went long last run, the semaphores will still be available this time
+	sem_unlink("mutexP"); //just in case something went wrong last run, the semaphores will still be available this time
 	sem_unlink("mutexN");		
 	
 	//this section of code allows us to print the program name in error messages
@@ -153,21 +101,21 @@ int main(int argc, char *argv[]) {
 		memmove(programName, programName + 2, strlen(programName));
 	}
 	
-	//set up 2 second timer
+	//set up 2 minute timer
    if (setupinterrupt()) {
 		errno = 125;
-		errorMessage(programName, "Failed to set up 2 second timer. ");
+		errorMessage(programName, "Failed to set up 2 minute timer. ");
     }
     if (setupitimer() == -1) {
 		errno = 125;
-		errorMessage(programName, "Failed to set up 2 second timer. ");
+		errorMessage(programName, "Failed to set up 2 minute timer. ");
     }
 	
 	char inputFileName[] = "input.txt";
 	int maxKidsTotal = 4;
 	int maxKidsAtATime = 19; //we must never have more then 20 processes running, meaning 19 kids + 1 parent
 
-	//clear our files
+	//clear our output files
 	FILE *pOut;
 	pOut = fopen("palin.out", "w");
 	fclose(pOut);
@@ -180,15 +128,13 @@ int main(int argc, char *argv[]) {
 	while ((option = getopt(argc, argv, "hn:i:")) != -1) {
 		switch (option) {
 			case 'h' :	printf("Help page for OS_Klein_project3\n"); //for h, we print data to the screen
-						printf("Consists of the following:\n\tTwo .c file titled master.c and palin.c\n\tOne Makefile\n\tOne README.md file\n\tOne version control log.\n");
+						printf("Consists of the following:\n\tTwo .c files titled master.c and palin.c\n\tOne .h file titled sharedMemory.h\n\tOne Makefile\n\tOne README.md file\n\tOne version control log.\n");
 						printf("The command 'make' will run the makefile and compile the program\n");
 						printf("Command line arguments for master executable:\n");
 						printf("\t-i\t<inputFileName>\t\tdefaults to input.txt\n");
-						//output file names are set to palin.out and nopalin.out
 						printf("\t-n\t<maxTotalChildren>\tdefaults to 4\n");
-						printf("\t-s\t<maxKidsAtATime>\tdefaults to 2\n");
 						printf("\t-h\t<NoArgument>\n");
-						printf("Version control acomplished using github. Log obtained using command 'git log > versionLog.txt\n");
+						printf("Version control acomplished using github. Log obtained using command 'git log > versionLog.txt'\n");
 						exit(0);
 						break;
 			case 'n' :	maxKidsTotal = atoi(optarg); //for n, we set the maximum number of children we will fork
@@ -205,10 +151,10 @@ int main(int argc, char *argv[]) {
 	input = fopen(inputFileName, "r");
 	if (input == NULL) {
 		errno = 2;
-		errorMessage(programName, "Cannot open desired file. ");
+		errorMessage(programName, "Cannot open input file. ");
 	}
 
-    file_entry *entries;
+    file_entry *entries; //allows us to request shared memory data
 
 	//connect to shared memory
 	if ((shmid = shmget(1094, sizeof(file_entry) + 256, IPC_CREAT | 0666)) == -1) {
@@ -222,7 +168,7 @@ int main(int argc, char *argv[]) {
     int i = 0;
 	char buffer[81];
 	int numOfLines = 0;
-	while (fgets(buffer, 81, input) != NULL) {
+	while (fgets(buffer, 81, input) != NULL) { //read from file and save in shared memory
 		//remove new line character
 		char *p = buffer;
 		if (p[strlen(p)-1] == '\n') {	
@@ -234,7 +180,6 @@ int main(int argc, char *argv[]) {
 		numOfLines++;
 	}
 	fclose(input);
-	//printf("done attachment\n");
 	
 	//initialize semaphore
 	sem_t *semP = sem_open("mutexP", O_CREAT | O_EXCL, 0644, 1);
@@ -245,10 +190,8 @@ int main(int argc, char *argv[]) {
 	if (semN == SEM_FAILED) {
 		errorMessage(programName, "Error creating semaphore ");
 	}
-	sem_close(semP); //test the placement of these
+	sem_close(semP); //we won't use them in master process, so close for now
 	sem_close(semN);
-	
-	//printf("This file has %d lines\n", numOfLines);	
 	
 	int startIndex = -5;
 	int duration = 5;
@@ -257,75 +200,49 @@ int main(int argc, char *argv[]) {
 	int returnValue;
 	int numKidsDone = 0;
 	
+	//began the process of creating children
 	while ((numKidsDone < maxKidsTotal) && !(done == 1 && numKidsRunning == 0)) {
-		
-		//printf("done equals %d and kidsRunning equals %d\n", done, numKidsRunning);
-		returnValue = waitpid(-1, NULL, WNOHANG);
-		//if a child has ended, return pid
-		//if children are running, return 0
-		//if no children are running, return -1
+		returnValue = waitpid(-1, NULL, WNOHANG); //see if any processes have terminated
 		if (returnValue > 0) { //a child has ended
-			//write to output file the time this process ended
-			//printf("Child %d ended\n", returnValue);
 			numKidsRunning -= 1;
-			for (i = 0; i < 19; i++) { //leave a spot in the array list
+			for (i = 0; i < 19; i++) { //remove pid from array list
 				if (pidList[i] == returnValue) {
 					pidList[i] = 0;
-					break; //maybe this works?
+					break;
 				}
 			}			
 			numKidsDone += 1;
 		}
 		
-		if (done == 0 && numKidsRunning < maxKidsAtATime) {
-			startIndex += 5;
+		if (done == 0 && numKidsRunning < maxKidsAtATime) { //if not done && if we can start another process
+			startIndex += 5; //increment start index
 			char buffer1[11];
-			sprintf(buffer1, "%d", startIndex);
+			sprintf(buffer1, "%d", startIndex); //save start index to buffer1
 			if (startIndex + duration >= numOfLines) {
-				duration = numOfLines % 5;
+				duration = numOfLines % 5; //duration is normally 5, unless there are no more lines. Then it is less
 				done = 1;
-				//printf("last run\n");
 			}
 			char buffer2[11];
-			sprintf(buffer2, "%d", duration);
-			//printf("Let's send in %d and %d\n", startIndex, duration);
+			sprintf(buffer2, "%d", duration); //save duration to buffer2
 			pid_t pid;
 			pid = fork();
 			if (pid == 0) { //child
-
-				execl ("palin", "plain", buffer1, buffer2, NULL);
+				execl ("palin", "plain", buffer1, buffer2, NULL); //send both buffers as arguments to palin
 				errorMessage(programName, "execl function failed. ");
 			} else { //parrent
 				numKidsRunning += 1;
 				for (i = 0; i < 19; i++) { //claim a spot in the array list
 					if (pidList[i] == 0) {
 						pidList[i] = pid;
-						break; //maybe this works?
+						break;
 					}
 				}
-				//wait(NULL);
-				//shmdt(&shmid);
-				//printf("end for else\n");
 				continue;
 			}		
 		}
-
 	}
 
-	endAll(0);
-	//sem_unlink("mutexP");
-	//sem_unlink("mutexN");	
-	/* Close the semaphore as we won't be using it in the parent process */
-   /* if (sem_close(sem) < 0) {
-        perror("sem_close(3) failed");
-        sem_unlink("mutex");
-        //exit(EXIT_FAILURE);
-    }*/
-	//destroy shared memory
-	/*int ctl_return = shmctl(shmid, IPC_RMID, NULL);
-	if (ctl_return == -1) {
-		errorMessage(programName, "Function scmctl failed. ");
-	}*/
-	
+	endAll(0); //release resources and terminate child processes
+	printf("Program complete. Results written to palin.out and nopalin.out\n");
 	return 0;
 }
