@@ -48,6 +48,12 @@ void endAll(int error) {
 		kill(-1*getpid(), SIGKILL);	
 }
 
+//called when interupt signal (^C) is called
+void intHandler(int dummy) {
+	printf(" Interupt signal received.\n");
+	endAll(1);
+}
+
 //handles the 2 second timer force stop - based on textbook code as instructed by professor
 static void myhandler(int s) {
     char message[46] = "Program reached 2 minute time limit. Program ";
@@ -91,6 +97,8 @@ void removeSpaces(char* s) {
 }
 
 int main(int argc, char *argv[]) {
+	signal(SIGINT, intHandler);
+	
 	sem_unlink("mutexP"); //just in case something went wrong last run, the semaphores will still be available this time
 	sem_unlink("mutexN");		
 	
@@ -114,14 +122,6 @@ int main(int argc, char *argv[]) {
 	char inputFileName[] = "input.txt";
 	int maxKidsTotal = 4;
 	int maxKidsAtATime = 19; //we must never have more then 20 processes running, meaning 19 kids + 1 parent
-
-	//clear our output files
-	FILE *pOut;
-	pOut = fopen("palin.out", "w");
-	fclose(pOut);
-	FILE *nOut;
-	nOut = fopen("nopalin.out", "w");
-	fclose(nOut);			
 	
 	//first we process the getopt arguments
 	int option;
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
 		numOfLines++;
 	}
 	fclose(input);
-	
+
 	//initialize semaphore
 	sem_t *semP = sem_open("mutexP", O_CREAT | O_EXCL, 0644, 1);
 	if (semP == SEM_FAILED) {
@@ -192,6 +192,14 @@ int main(int argc, char *argv[]) {
 	}
 	sem_close(semP); //we won't use them in master process, so close for now
 	sem_close(semN);
+	
+	//clear our output files
+	FILE *pOut;
+	pOut = fopen("palin.out", "w");
+	fclose(pOut);
+	FILE *nOut;
+	nOut = fopen("nopalin.out", "w");
+	fclose(nOut);			
 	
 	int startIndex = -5;
 	int duration = 5;
@@ -220,6 +228,8 @@ int main(int argc, char *argv[]) {
 			sprintf(buffer1, "%d", startIndex); //save start index to buffer1
 			if (startIndex + duration >= numOfLines) {
 				duration = numOfLines % 5; //duration is normally 5, unless there are no more lines. Then it is less
+				if (duration == 0)
+					duration = 5;
 				done = 1;
 			}
 			char buffer2[11];
