@@ -78,7 +78,6 @@ int main(int argc, char *argv[]) {
         errorMessage(programName, "Unable to open semaphore ");
     }
 		
-	
 	//read from shared memory
 	int i, j = 0;
 	for (i = startIndex; i < startIndex + duration; i++) { //for each string within our range

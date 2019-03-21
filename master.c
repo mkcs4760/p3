@@ -63,6 +63,7 @@ static void myhandler(int s) {
     errno = errsave;
 	endAll(1);
 }
+
 //function taken from textbook as instructed by professor
 static int setupinterrupt(void) { //set up myhandler for  SIGPROF
     struct sigaction act;
@@ -70,6 +71,7 @@ static int setupinterrupt(void) { //set up myhandler for  SIGPROF
     act.sa_flags = 0;
     return (sigemptyset(&act.sa_mask) || sigaction(SIGPROF, &act, NULL));
 }
+
 //function taken from textbook as instructed by professor
 static int setupitimer(void) { // set ITIMER_PROF for 2-minute intervals
     struct itimerval value;
@@ -82,7 +84,7 @@ static int setupitimer(void) { // set ITIMER_PROF for 2-minute intervals
 //takes in program name and error string, and runs error message procedure
 void errorMessage(char programName[100], char errorString[100]){
 	char errorFinal[200];
-	sprintf(errorFinal, "%s : Error : %s", programName, errorString);
+	sprintf(errorFinal, "%s : error : %s", programName, errorString);
 	perror(errorFinal);
 	endAll(1); //releases resources and terminates all processes
 }
@@ -97,7 +99,7 @@ void removeSpaces(char* s) {
 }
 
 int main(int argc, char *argv[]) {
-	signal(SIGINT, intHandler);
+	signal(SIGINT, intHandler); //signal processing
 	
 	sem_unlink("mutexP"); //just in case something went wrong last run, the semaphores will still be available this time
 	sem_unlink("mutexN");		
@@ -127,7 +129,7 @@ int main(int argc, char *argv[]) {
 	int option;
 	while ((option = getopt(argc, argv, "hn:i:")) != -1) {
 		switch (option) {
-			case 'h' :	printf("Help page for OS_Klein_project3\n"); //for h, we print data to the screen
+			case 'h' :	printf("Help page for OS_Klein_project3\n"); //for h, we print helpful information about arguments to the screen
 						printf("Consists of the following:\n\tTwo .c files titled master.c and palin.c\n\tOne .h file titled sharedMemory.h\n\tOne Makefile\n\tOne README.md file\n\tOne version control log.\n");
 						printf("The command 'make' will run the makefile and compile the program\n");
 						printf("Command line arguments for master executable:\n");
@@ -168,18 +170,22 @@ int main(int argc, char *argv[]) {
     int i = 0;
 	char buffer[81];
 	int numOfLines = 0;
-	while (fgets(buffer, 81, input) != NULL) { //read from file and save in shared memory
+	while (fgets(buffer, 81, input) != NULL) { //read from file...
 		//remove new line character
 		char *p = buffer;
 		if (p[strlen(p)-1] == '\n') {	
 			p[strlen(p)-1] = 0;
 		}
-
-		sprintf(entries->data[i], "%s", p);
+		sprintf(entries->data[i], "%s", p); //...and save to shared memory
 		i++;
 		numOfLines++;
 	}
 	fclose(input);
+	
+	if (numOfLines == 0) { //if input file is empty, send an error message
+		errno = 11;
+		errorMessage(programName, "Input file is empty ");
+	}
 
 	//initialize semaphore
 	sem_t *semP = sem_open("mutexP", O_CREAT | O_EXCL, 0644, 1);
@@ -205,11 +211,15 @@ int main(int argc, char *argv[]) {
 	int duration = 5;
 	int done = 0;
 	int numKidsRunning = 0;
+	int numKidsBorn = 0;
 	int returnValue;
 	int numKidsDone = 0;
 	
 	//began the process of creating children
 	while ((numKidsDone < maxKidsTotal) && !(done == 1 && numKidsRunning == 0)) {
+		if (numKidsDone >= maxKidsTotal) {
+			
+		}
 		returnValue = waitpid(-1, NULL, WNOHANG); //see if any processes have terminated
 		if (returnValue > 0) { //a child has ended
 			numKidsRunning -= 1;
@@ -222,7 +232,7 @@ int main(int argc, char *argv[]) {
 			numKidsDone += 1;
 		}
 		
-		if (done == 0 && numKidsRunning < maxKidsAtATime) { //if not done && if we can start another process
+		if (done == 0 && numKidsRunning < maxKidsAtATime && numKidsRunning + numKidsDone < maxKidsTotal) { //if not done && if we can start another process
 			startIndex += 5; //increment start index
 			char buffer1[11];
 			sprintf(buffer1, "%d", startIndex); //save start index to buffer1
@@ -240,6 +250,7 @@ int main(int argc, char *argv[]) {
 				execl ("palin", "plain", buffer1, buffer2, NULL); //send both buffers as arguments to palin
 				errorMessage(programName, "execl function failed. ");
 			} else { //parrent
+				numKidsBorn += 1;
 				numKidsRunning += 1;
 				for (i = 0; i < 19; i++) { //claim a spot in the array list
 					if (pidList[i] == 0) {
@@ -251,7 +262,7 @@ int main(int argc, char *argv[]) {
 			}		
 		}
 	}
-
+	
 	endAll(0); //release resources and terminate child processes
 	printf("Program complete. Results written to palin.out and nopalin.out\n");
 	return 0;
